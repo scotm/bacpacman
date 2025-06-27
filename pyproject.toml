@@ -1,7 +1,45 @@
 [project]
 name = "bacpacman"
 version = "0.1.0"
-description = "Add your description here"
+description = "A utility for managing Azure SQL databases."
 readme = "README.md"
 requires-python = ">=3.10.9"
-dependencies = []
+license = { text = "MIT" }
+authors = [
+    { name = "Scott Macdonald", email = "your-email@example.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "azure-identity",
+    "azure-mgmt-resource",
+    "azure-mgmt-sql",
+    "click",
+    "python-dotenv",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/your-username/bacpacman"
+"Bug Tracker" = "https://github.com/your-username/bacpacman/issues"
+
+[project.scripts]
+bacpacman = "bacpacman:cli"
+
+[project.optional-dependencies]
+dev = ["mypy", "ruff", "black", "build", "twine"]
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = []
