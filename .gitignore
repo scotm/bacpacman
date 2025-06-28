@@ -103,6 +103,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Bacpac files
+*.bacpac
+
 # Spyder project settings
 .spyderproject
 .spyproject

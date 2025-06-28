@@ -32,7 +32,7 @@ dependencies = [
 bacpacman = "bacpacman:cli"
 
 [project.optional-dependencies]
-dev = ["mypy", "ruff", "black", "build", "twine"]
+dev = ["mypy", "ruff", "black", "build", "twine", "keyring"]
 
 [tool.black]
 line-length = 88

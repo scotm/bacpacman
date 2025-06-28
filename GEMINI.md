@@ -12,6 +12,7 @@ This document summarizes the work done, build processes, and other useful inform
 *   **CLI Framework:** `click`
 *   **Azure Interaction:** `azure-identity`, `azure-mgmt-resource`, `azure-mgmt-sql`
 *   **Configuration:** `python-dotenv` for storing the selected subscription ID.
+*   **Secure Credential Storage:** `keyring` for managing SQL Server passwords in the system keychain.
 *   **Linting & Formatting:** `ruff` and `black`
 *   **Type Checking:** `mypy`
 
@@ -31,6 +32,8 @@ This document summarizes the work done, build processes, and other useful inform
 ## Implemented Features
 
 *   **End-to-End Workflow:** The default behavior of the script is now a full, interactive workflow that guides the user through the entire process of selecting a subscription, server, and database, and then extracts the `.bacpac` file.
+*   **Dual Authentication Methods:** The tool now supports both `Azure Active Directory` and `SQL Server Authentication`, prompting the user to choose their preferred method.
+*   **Secure Credential Management:** For SQL Server Authentication, the script uses the `keyring` library to securely store and retrieve passwords from the operating system's native keychain.
 *   **Azure Authentication:** `login` command that uses `DefaultAzureCredential` to authenticate. It requires the user to be logged in via the Azure CLI (`az login`). The tool now provides user-friendly error messages for common authentication failures.
 *   **Subscription Management:**
     *   `login` automatically lists available subscriptions upon successful authentication.
