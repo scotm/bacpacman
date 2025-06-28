@@ -8,11 +8,14 @@ import sys
 import click
 import keyring
 import keyring.errors
+import questionary
 from azure.core.exceptions import ClientAuthenticationError, ServiceRequestError
 from azure.identity import CredentialUnavailableError, DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
 from azure.mgmt.sql import SqlManagementClient
+from azure.mgmt.sql.models import Database, Server
 from dotenv import load_dotenv, set_key
+from questionary import Choice
 
 load_dotenv()
 
@@ -43,6 +46,23 @@ def cli() -> None:
     pass
 
 
+# Define a custom style for the prompts
+custom_style = questionary.Style(
+    [
+        ("qmark", "fg:#673ab7 bold"),  # Question mark
+        ("question", "bold"),  # Question text
+        ("answer", "fg:#f44336 bold"),  # Answer text
+        ("pointer", "fg:#673ab7 bold"),  # Pointer character
+        ("highlighted", "fg:#673ab7 bold"),  # Highlighted choice
+        ("selected", "fg:#ffffff bg:#673ab7"),  # Selected choice
+        ("separator", "fg:#cc5454"),  # Separator
+        ("instruction", "fg:#858585"),  # Instruction text
+        ("text", ""),  # Default text
+        ("disabled", "fg:#858585 italic"),  # Disabled choices
+    ]
+)
+
+
 def _extract_bacpac_logic(
     server_name: str,
     database_name: str,
@@ -51,7 +71,10 @@ def _extract_bacpac_logic(
     username: str | None = None,
 ) -> None:
     """The core logic for extracting a bacpac file."""
-    click.echo(f"Extracting bacpac from {database_name} on {server_name}...")
+    questionary.print(
+        f"Extracting bacpac from {database_name} on {server_name}...",
+        style="bold fg:green",
+    )
 
     command: list[str] = [
         "sqlpackage",
@@ -68,54 +91,64 @@ def _extract_bacpac_logic(
         try:
             password = keyring.get_password(server_name, username)
             if not password:
-                password = click.prompt(
-                    f"Enter password for {username} on {server_name}",
-                    hide_input=True,
-                )
-                keyring.set_password(server_name, username, password)
+                password = questionary.password(
+                    f"Enter password for {username} on {server_name}:"
+                ).ask()
+                if password:
+                    keyring.set_password(server_name, username, password)
             command.extend([f"/su:{username}", f"/sp:'{password}'"])
         except keyring.errors.NoKeyringError:
-            click.echo(
-                "Error: No keyring backend found. "
-                "Please install a backend for your OS (e.g., 'secretstorage' on Linux)."
+            questionary.print(
+                "Error: No keyring backend found. Please install a backend for your OS "
+                "(e.g., 'secretstorage' on Linux).",
+                style="bold fg:red",
             )
             return
 
     try:
+        questionary.print("Extracting bacpac...", style="bold fg:green")
         process = subprocess.run(
             command, check=True, capture_output=True, text=True, encoding="utf-8"
         )
-        click.echo(f"Successfully extracted bacpac to {output_file}")
+        questionary.print(
+            f"Successfully extracted bacpac to {output_file}", style="bold fg:green"
+        )
         if process.stdout:
-            click.echo(process.stdout)
+            questionary.print(process.stdout)
     except FileNotFoundError:
-        click.echo("Error: 'sqlpackage' command not found.")
-        click.echo(
+        questionary.print("Error: 'sqlpackage' command not found.", style="bold fg:red")
+        questionary.print(
             "Please ensure the sqlpackage utility is installed and in your system's "
             "PATH."
         )
     except subprocess.CalledProcessError as e:
-        click.echo("Error: The 'sqlpackage' command failed.")
-        click.echo(f"Command executed: {' '.join(command)}")
-        click.echo("\n--- sqlpackage error output ---")
-        click.echo(e.stderr)
-        click.echo("-------------------------------")
+        questionary.print(
+            "Error: The 'sqlpackage' command failed.", style="bold fg:red"
+        )
+        questionary.print(f"Command executed: {' '.join(command)}")
+        questionary.print("\n--- sqlpackage error output ---", style="bold fg:yellow")
+        questionary.print(e.stderr, style="fg:yellow")
+        questionary.print("-------------------------------", style="bold fg:yellow")
 
 
 def full_workflow() -> None:
     """Runs the full end-to-end workflow."""
-    click.echo("Starting the full BacPacman workflow...")
+    questionary.print(
+        "Starting the full BacPacman workflow...", style="bold fg:#673ab7"
+    )
 
     # 1. Choose Authentication Method
-    auth_method = click.prompt(
+    auth_method_choice = questionary.select(
         "How would you like to authenticate to the database?",
-        type=click.Choice(
-            ["Azure Active Directory", "SQL Server Authentication"],
-            case_sensitive=False,
-        ),
-        default="Azure Active Directory",
-    )
-    auth_method = "aad" if "active" in auth_method.lower() else "sql"
+        choices=[
+            Choice("Azure Active Directory", "aad"),
+            Choice("SQL Server Authentication", "sql"),
+        ],
+        style=custom_style,
+    ).ask()
+
+    if not auth_method_choice:
+        return
 
     selected_server_name: str | None = None
     selected_database_name: str | None = None
@@ -123,6 +156,7 @@ def full_workflow() -> None:
 
     try:
         # 2. Login & Discover Resources via Azure
+        questionary.print("Fetching subscriptions...", style="bold")
         subscription_client = get_subscription_client()
         with open(os.devnull, "w") as f, contextlib.redirect_stderr(f):
             subscriptions = list(subscription_client.subscriptions.list())
@@ -132,79 +166,102 @@ def full_workflow() -> None:
             )
 
         # 3. Select Subscription
-        for i, sub in enumerate(subscriptions):
-            click.echo(f"{i+1}. {sub.display_name} ({sub.subscription_id})")
-        sub_index = click.prompt(
-            "Please enter the number of the subscription to use", type=int
-        )
-        subscription_id = subscriptions[sub_index - 1].subscription_id
+        subscription_choices = [
+            Choice(f"{s.display_name} ({s.subscription_id})", s.subscription_id)
+            for s in subscriptions
+        ]
+        subscription_id = questionary.select(
+            "Select your Azure subscription:",
+            choices=subscription_choices,
+            style=custom_style,
+        ).ask()
+        if not subscription_id:
+            return
         set_key(".env", "AZURE_SUBSCRIPTION_ID", subscription_id)
-        click.echo(f"Selected subscription: {subscription_id}")
+        questionary.print(f"Selected subscription: {subscription_id}", style="bold")
 
         # 4. List and Select Server
+        questionary.print("Fetching servers...", style="bold")
         sql_client = get_sql_client(subscription_id)
-        servers = list(sql_client.servers.list())
+        servers: list[Server] = list(sql_client.servers.list())
         if not servers:
-            click.echo("No SQL servers found in the selected subscription.")
+            questionary.print(
+                "No SQL servers found in the selected subscription.",
+                style="bold fg:yellow",
+            )
             return
 
-        click.echo("Available SQL servers:")
-        for i, server in enumerate(servers):
-            click.echo(f"{i+1}. {server.name}")
-        server_index = click.prompt(
-            "Please enter the number of the server to use", type=int
-        )
-        selected_server = servers[server_index - 1]
+        server_choices = [Choice(s.name, s) for s in servers]
+        selected_server: Server | None = questionary.select(
+            "Select the SQL server:", choices=server_choices, style=custom_style
+        ).ask()
+        if not selected_server:
+            return
         selected_server_name = selected_server.name
 
         # 5. List and Select Database
+        questionary.print("Fetching databases...", style="bold")
         resource_group_name = selected_server.id.split("/")[4]
-        databases = list(
+        databases: list[Database] = list(
             sql_client.databases.list_by_server(
                 resource_group_name, selected_server.name
             )
         )
         if not databases:
-            click.echo("No databases found on the specified server.")
+            questionary.print(
+                "No databases found on the specified server.", style="bold fg:yellow"
+            )
             return
 
-        click.echo("Available databases:")
-        for i, db in enumerate(databases):
-            click.echo(f"{i+1}. {db.name}")
-        db_index = click.prompt(
-            "Please enter the number of the database to use", type=int
-        )
-        selected_database_name = databases[db_index - 1].name
+        db_choices = [Choice(db.name, db.name) for db in databases]
+        selected_database_name = questionary.select(
+            "Select the database:", choices=db_choices, style=custom_style
+        ).ask()
+        if not selected_database_name:
+            return
 
     except (ClientAuthenticationError, ServiceRequestError) as e:
-        click.echo(
+        questionary.print(
             f"\nWarning: Could not connect to Azure to discover resources "
-            f"({type(e).__name__})."
+            f"({type(e).__name__}).",
+            style="bold fg:yellow",
         )
-        click.echo(
+        questionary.print(
             "This can happen due to network issues or if you are not logged in with "
-            "'az login'."
+            "'az login'.",
+            style="fg:yellow",
         )
-        click.echo("Falling back to manual entry.\n")
-        selected_server_name = click.prompt("Enter the server name")
-        selected_database_name = click.prompt("Enter the database name")
+        questionary.print("Falling back to manual entry.\n", style="fg:yellow")
+        selected_server_name = questionary.text("Enter the server name:").ask()
+        selected_database_name = questionary.text("Enter the database name:").ask()
 
     # 6. Get credentials if using SQL Auth
-    if auth_method == "sql":
-        username = click.prompt(
-            f"Enter your SQL Server username for '{selected_server_name}'"
-        )
+    if auth_method_choice == "sql":
+        username = questionary.text(
+            f"Enter your SQL Server username for '{selected_server_name}':"
+        ).ask()
 
     # 7. Extract Bacpac
     if selected_server_name and selected_database_name:
         output_file = f"{selected_database_name}.bacpac"
-        _extract_bacpac_logic(
-            selected_server_name,
-            selected_database_name,
-            output_file,
-            auth_method,
-            username,
+        summary = (
+            f"Server: {selected_server_name}\n"
+            f"Database: {selected_database_name}\n"
+            f"Output File: {output_file}"
         )
+        questionary.print("\nSummary:", style="bold")
+        questionary.print(summary)
+        proceed = questionary.confirm("Proceed with the extraction?").ask()
+        if proceed:
+            _extract_bacpac_logic(
+                selected_server_name,
+                selected_database_name,
+                output_file,
+                auth_method_choice,
+                username,
+            )
+        else:
+            questionary.print("Extraction cancelled.", style="bold fg:red")
 
 
 @cli.command()
