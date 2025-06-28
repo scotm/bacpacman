@@ -218,9 +218,7 @@ def full_workflow() -> None:
 def extract_bacpac(server_name: str, database_name: str, output_file: str) -> None:
     """Extracts a bacpac from an Azure SQL database."""
     # This command will default to Azure AD authentication.
-    _extract_bacpac_logic(
-        server_name, database_name, output_file, auth_method="aad"
-    )
+    _extract_bacpac_logic(server_name, database_name, output_file, auth_method="aad")
 
 
 @cli.command()
