@@ -34,6 +34,9 @@ bacpacman = "bacpacman:cli"
 [project.optional-dependencies]
 dev = ["mypy", "ruff", "black", "build", "twine", "keyring", "questionary"]
 
+[tool.setuptools]
+py-modules = ["bacpacman"]
+
 [tool.black]
 line-length = 88
 
