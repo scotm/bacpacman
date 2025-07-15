@@ -27,10 +27,10 @@ This document summarizes the work done, build processes, and other useful inform
     source .venv/bin/activate
     ```
 
-4. **Dependencies:** All necessary Python packages are defined in `pyproject.toml`. To install them, run:
+4. **Dependencies:** All necessary Python packages are defined in `pyproject.toml`. To install both production and development dependencies, run:
 
     ```bash
-    uv pip sync pyproject.toml --extra dev
+    uv pip install .[dev]
     ```
 
 ## Implemented Features
