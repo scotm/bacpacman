@@ -4,6 +4,8 @@ import platform
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterable
+from typing import cast
 
 import click
 import keyring
@@ -79,8 +81,8 @@ def _extract_bacpac_logic(
     command: list[str] = [
         "sqlpackage",
         "/Action:Export",
-        f"/SourceServerName:{server_name}.database.windows.net,1433",
-        f"/SourceDatabaseName:{database_name}",
+        f"/SourceServerName tcp:{server_name}.database.windows.net",
+        f"/SourceDatabaseName {database_name}",
         f"/TargetFile:{output_file}",
         "/p:VerifyExtraction=False",
     ]
@@ -96,7 +98,10 @@ def _extract_bacpac_logic(
                 ).ask()
                 if password:
                     keyring.set_password(server_name, username, password)
-            command.extend([f"/su:{username}", f"/sp:'{password}'"])
+            if password:
+                command.extend(
+                    [f"/SourceUser {username}", f"/SourcePassword '{password}'"]
+                )
         except keyring.errors.NoKeyringError:
             questionary.print(
                 "Error: No keyring backend found. Please install a backend for your OS "
@@ -167,7 +172,10 @@ def full_workflow() -> None:
 
         # 3. Select Subscription
         subscription_choices = [
-            Choice(f"{s.display_name} ({s.subscription_id})", s.subscription_id)
+            Choice(
+                f"{s.display_name} ({s.subscription_id})",
+                s.subscription_id if s.subscription_id else "Unknown",
+            )
             for s in subscriptions
         ]
         subscription_id = questionary.select(
@@ -183,37 +191,40 @@ def full_workflow() -> None:
         # 4. List and Select Server
         questionary.print("Fetching servers...", style="bold")
         sql_client = get_sql_client(subscription_id)
-        servers: list[Server] = list(sql_client.servers.list())
-        if not servers:
+        servers: Iterable[Server] = cast(Iterable[Server], sql_client.servers.list())
+        server_list: list[Server] = list(servers)
+        if not server_list:
             questionary.print(
                 "No SQL servers found in the selected subscription.",
                 style="bold fg:yellow",
             )
             return
 
-        server_choices = [Choice(s.name, s) for s in servers]
+        server_choices = [Choice(s.name, s) for s in server_list]
         selected_server: Server | None = questionary.select(
             "Select the SQL server:", choices=server_choices, style=custom_style
         ).ask()
-        if not selected_server:
+        if not selected_server or not selected_server.name or not selected_server.id:
             return
         selected_server_name = selected_server.name
 
         # 5. List and Select Database
         questionary.print("Fetching databases...", style="bold")
         resource_group_name = selected_server.id.split("/")[4]
-        databases: list[Database] = list(
+        databases: Iterable[Database] = cast(
+            Iterable[Database],
             sql_client.databases.list_by_server(
                 resource_group_name, selected_server.name
-            )
+            ),
         )
-        if not databases:
+        database_list: list[Database] = list(databases)
+        if not database_list:
             questionary.print(
                 "No databases found on the specified server.", style="bold fg:yellow"
             )
             return
 
-        db_choices = [Choice(db.name, db.name) for db in databases]
+        db_choices = [Choice(db.name, db.name) for db in database_list]
         selected_database_name = questionary.select(
             "Select the database:", choices=db_choices, style=custom_style
         ).ask()
@@ -237,6 +248,11 @@ def full_workflow() -> None:
 
     # 6. Get credentials if using SQL Auth
     if auth_method_choice == "sql":
+        if not selected_server_name:
+            questionary.print(
+                "Server name is required for SQL Authentication.", style="bold fg:red"
+            )
+            return
         username = questionary.text(
             f"Enter your SQL Server username for '{selected_server_name}':"
         ).ask()
@@ -325,7 +341,8 @@ def select_subscription(subscription_id: str | None) -> None:
         sub_index = click.prompt(
             "Please enter the number of the subscription to use", type=int
         )
-        subscription_id = subscriptions[sub_index - 1].subscription_id
+        if sub_index > 0 and sub_index <= len(subscriptions):
+            subscription_id = subscriptions[sub_index - 1].subscription_id
 
     if subscription_id:
         set_key(".env", "AZURE_SUBSCRIPTION_ID", subscription_id)
@@ -341,11 +358,7 @@ def list_servers() -> None:
         return
 
     sql_client = get_sql_client(subscription_id)
-    servers = list(sql_client.servers.list())
-
-    if not servers:
-        click.echo("No SQL servers found in the selected subscription.")
-        return
+    servers: Iterable[Server] = cast(Iterable[Server], sql_client.servers.list())
 
     click.echo("Available SQL servers:")
     for server in servers:
@@ -362,20 +375,30 @@ def list_databases(server_name: str) -> None:
         return
 
     sql_client = get_sql_client(subscription_id)
-    # This is a simplification, assuming the server is in the first resource group found
-    resource_groups = list(get_resource_client(subscription_id).resource_groups.list())
-    if not resource_groups:
-        click.echo("No resource groups found in the subscription.")
-        return
-    resource_group_name = resource_groups[0].name
 
-    databases = list(
-        sql_client.databases.list_by_server(resource_group_name, server_name)
+    # Find the resource group for the given server
+    resource_group_name: str | None = None
+    try:
+        all_servers: Iterable[Server] = cast(
+            Iterable[Server], sql_client.servers.list()
+        )
+        server_details = next((s for s in all_servers if s.name == server_name), None)
+        if server_details and server_details.id:
+            resource_group_name = server_details.id.split("/")[4]
+    except StopIteration:
+        click.echo(f"Server '{server_name}' not found in the subscription.")
+        return
+
+    if not resource_group_name:
+        click.echo(
+            f"Could not determine the resource group for server '{server_name}'."
+        )
+        return
+
+    databases: Iterable[Database] = cast(
+        Iterable[Database],
+        sql_client.databases.list_by_server(resource_group_name, server_name),
     )
-
-    if not databases:
-        click.echo("No databases found on the specified server.")
-        return
 
     click.echo("Available databases:")
     for db in databases:
@@ -447,8 +470,22 @@ def check_sqlpackage() -> None:
         sys.exit(1)
 
 
+def check_azure_cli() -> None:
+    """Checks if the Azure CLI is in the PATH and provides installation instructions."""
+    if not shutil.which("az"):
+        click.echo(
+            "The 'az' command-line utility is not installed or not in your PATH."
+        )
+        click.echo(
+            "The download page is here: "
+            "https://learn.microsoft.com/en-us/cli/azure/install-azure-cli"
+        )
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     check_sqlpackage()
+    check_azure_cli()
     if len(sys.argv) == 1:
         full_workflow()
     else:

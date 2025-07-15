@@ -15,7 +15,7 @@ This document summarizes the work done, build processes, and other useful inform
 * **Configuration:** `python-dotenv` for storing the selected subscription ID.
 * **Secure Credential Storage:** `keyring` for managing SQL Server passwords in the system keychain.
 * **Linting & Formatting:** `ruff` and `black`
-* **Type Checking:** `mypy`
+* **Type Checking:** `mypy`, `pyright`
 
 ## Build & Setup Process
 
@@ -80,6 +80,12 @@ To run `mypy` for static type checking:
 
 ```bash
 mypy .
+```
+
+To run `pyright` for static type checking:
+
+```bash
+pyright
 ```
 
 ## Prerequisites for Use
