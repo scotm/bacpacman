@@ -81,9 +81,8 @@ def _extract_bacpac_logic(
     command: list[str] = [
         "sqlpackage",
         "/Action:Export",
-        f"/SourceServerName tcp:{server_name}.database.windows.net",
-        f"/SourceDatabaseName {database_name}",
-        f"/TargetFile:{output_file}",
+        f"/SourceServerName:'tcp:{server_name}.database.windows.net'",
+        f"/SourceDatabaseName:'{database_name}'",
         "/p:VerifyExtraction=False",
     ]
 
@@ -100,7 +99,7 @@ def _extract_bacpac_logic(
                     keyring.set_password(server_name, username, password)
             if password:
                 command.extend(
-                    [f"/SourceUser {username}", f"/SourcePassword '{password}'"]
+                    [f"/SourceUser:'{username}'", f"/SourcePassword:'{password}'"]
                 )
         except keyring.errors.NoKeyringError:
             questionary.print(
@@ -109,6 +108,8 @@ def _extract_bacpac_logic(
                 style="bold fg:red",
             )
             return
+
+    command.append(f"/TargetFile:'{output_file}'")
 
     try:
         questionary.print("Extracting bacpac...", style="bold fg:green")
