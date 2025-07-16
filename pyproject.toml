@@ -29,13 +29,13 @@ dependencies = [
 "Bug Tracker" = "https://github.com/your-username/bacpacman/issues"
 
 [project.scripts]
-bacpacman = "bacpacman:cli"
+bacpacman = "bacpacman.main:main"
 
 [project.optional-dependencies]
 dev = ["mypy", "ruff", "black", "build", "twine", "keyring", "questionary", "pyright"]
 
 [tool.setuptools]
-py-modules = ["bacpacman"]
+packages = ["bacpacman"]
 
 [tool.black]
 line-length = 88
