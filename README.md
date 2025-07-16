@@ -12,11 +12,11 @@ This tool is designed to be a helpful replacement for the Azure Data Studio expo
 
 ## Key Features
 
-*   **Interactive End-to-End Workflow:** Simply run `bacpacman` to be guided through the entire process.
-*   **Smart Prerequisite Checking:** Automatically checks if `sqlpackage` is installed and provides OS-specific installation instructions.
-*   **Secure Authentication:** Uses `DefaultAzureCredential` to securely authenticate with your Azure account via the Azure CLI.
-*   **User-Friendly Prompts:** Gracefully handles expired credentials and other common errors with clear, actionable messages.
-*   **Modular Commands:** Provides individual commands for specific actions like listing servers or databases.
+* **Interactive End-to-End Workflow:** Simply run `bacpacman` to be guided through the entire process.
+* **Smart Prerequisite Checking:** Automatically checks if `sqlpackage` is installed and provides OS-specific installation instructions.
+* **Secure Authentication:** Uses `DefaultAzureCredential` to securely authenticate with your Azure account via the Azure CLI.
+* **User-Friendly Prompts:** Gracefully handles expired credentials and other common errors with clear, actionable messages.
+* **Modular Commands:** Provides individual commands for specific actions like listing servers or databases.
 
 ## Prerequisites
 
@@ -34,6 +34,34 @@ You can install `bacpacman` directly from PyPI:
 pip install bacpacman
 ```
 
+## Development
+
+To run the tool from the source code for development, follow these steps:
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/your-username/bacpacman.git
+    cd bacpacman
+    ```
+
+2.  **Create and activate a virtual environment:**
+
+    ```bash
+    # Create the virtual environment
+    uv venv
+
+    # Activate it (on macOS/Linux)
+    source .venv/bin/activate
+    ```
+
+3.  **Install the project in editable mode:**
+
+    ```bash
+    # Install the package and its development dependencies
+    uv pip install -e .[dev]
+    ```
+
 ## Usage
 
 ### Default Interactive Workflow
@@ -49,26 +77,31 @@ bacpacman
 You can also use individual commands for more specific tasks.
 
 **Login and list your subscriptions:**
+
 ```bash
 bacpacman login
 ```
 
 **Select a subscription to work with:**
+
 ```bash
 bacpacman select-subscription
 ```
 
 **List SQL servers in your selected subscription:**
+
 ```bash
 bacpacman list-servers
 ```
 
 **List databases on a specific server:**
+
 ```bash
 bacpacman list-databases --server-name your-server-name
 ```
 
 **Extract a `.bacpac` file directly:**
+
 ```bash
 bacpacman extract-bacpac --server-name your-server --database-name your-db
 ```
