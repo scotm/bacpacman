@@ -5,13 +5,15 @@ from azure.core.exceptions import ClientAuthenticationError
 from azure.identity import CredentialUnavailableError
 from dotenv import set_key
 
-from . import azure_handler, sql_handler
+from . import azure_handler, sql_handler, ui
 
 
-@click.group()
-def cli() -> None:
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """A utility for managing Azure SQL databases."""
-    pass
+    if ctx.invoked_subcommand is None:
+        ui.run_interactive_workflow()
 
 
 @cli.command()
