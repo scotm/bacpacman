@@ -5,13 +5,15 @@ from azure.core.exceptions import ClientAuthenticationError
 from azure.identity import CredentialUnavailableError
 from dotenv import set_key
 
-from . import azure_handler, sql_handler
+from . import azure_handler, sql_handler, ui
 
 
-@click.group()
-def cli() -> None:
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """A utility for managing Azure SQL databases."""
-    pass
+    if ctx.invoked_subcommand is None:
+        ui.run_interactive_workflow()
 
 
 @cli.command()
@@ -109,13 +111,19 @@ def list_databases(server_name: str) -> None:
 
 
 @cli.command()
-@click.option("--input-file", prompt="Input File", help="The bacpac file to import.")
+@click.option("--input-file", help="The bacpac file to import.")
 @click.option(
-    "--server-name", default="localhost", help="The name of the local SQL server."
+    "--server-name", help="The name of the local SQL server (defaults to 'localhost')."
 )
-@click.option(
-    "--database-name", prompt="Database Name", help="The name of the target database."
-)
-def import_bacpac(input_file: str, server_name: str, database_name: str) -> None:
+@click.option("--database-name", help="The name of the target database.")
+def import_bacpac(
+    input_file: str | None, server_name: str | None, database_name: str | None
+) -> None:
     """Imports a bacpac to a local SQL server."""
-    sql_handler.import_bacpac(input_file, server_name, database_name)
+    if input_file and database_name:
+        # If all arguments are provided, run non-interactively
+        final_server_name = server_name or "localhost"
+        sql_handler.import_bacpac(input_file, final_server_name, database_name)
+    else:
+        # Otherwise, run the interactive workflow
+        ui.run_import_workflow(server_name)

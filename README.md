@@ -2,21 +2,22 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Your friendly neighborhood utility for exporting Azure SQL databases to `.bacpac` files.
+Your friendly neighborhood utility for exporting Azure SQL databases to `.bacpac` files and importing them locally.
 
 ## Overview
 
-Cloning a remote Azure SQL database to a local SQL Server instance is an itch that many developers need to scratch. `bacpacman` is a simple, interactive command-line tool that automates this entire process. It guides you through selecting your Azure subscription, server, and database, and then uses the `sqlpackage` utility to extract a `.bacpac` file, ready for local import.
+Cloning a remote Azure SQL database to a local SQL Server instance is an itch that many developers need to scratch. `bacpacman` is a simple, interactive command-line tool that automates this entire process. It guides you through selecting your Azure subscription, server, and database, and then uses the `sqlpackage` utility to export a `.bacpac` file. It also provides a smart, interactive workflow to import that `.bacpac` into your local SQL Server.
 
 This tool is designed to be a helpful replacement for the Azure Data Studio export wizard, especially with its impending retirement.
 
 ## Key Features
 
-* **Interactive End-to-End Workflow:** Simply run `bacpacman` to be guided through the entire process.
-* **Smart Prerequisite Checking:** Automatically checks if `sqlpackage` is installed and provides OS-specific installation instructions.
-* **Secure Authentication:** Uses `DefaultAzureCredential` to securely authenticate with your Azure account via the Azure CLI.
-* **User-Friendly Prompts:** Gracefully handles expired credentials and other common errors with clear, actionable messages.
-* **Modular Commands:** Provides individual commands for specific actions like listing servers or databases.
+*   **Interactive Workflows:** Run `bacpacman` for a guided export from Azure, or `bacpacman import-bacpac` for a smart import to your local server.
+*   **Smart File Detection:** The import workflow automatically finds `.bacpac` files in your directory and prompts you to choose.
+*   **Intelligent Defaults:** Automatically suggests database names based on the filename, minimizing manual entry.
+*   **Secure Credential Management:** Uses `DefaultAzureCredential` for Azure and the system `keyring` for local SQL Server passwords, so you never have to store secrets in plain text.
+*   **Smart Prerequisite Checking:** Automatically checks if `sqlpackage` and the Azure CLI are installed and provides OS-specific installation instructions.
+*   **Automatic Certificate Handling:** Resolves common connection errors to local SQL Server instances by automatically trusting the server certificate.
 
 ## Prerequisites
 
@@ -64,15 +65,23 @@ To run the tool from the source code for development, follow these steps:
 
 ## Usage
 
-### Default Interactive Workflow
+### Interactive Workflows
 
-The easiest way to use the tool is to run it without any arguments. This will start the interactive workflow that guides you through every step.
+The easiest way to use the tool is to run it without any arguments for the two main workflows.
+
+**Export from Azure to a `.bacpac` file:**
 
 ```bash
 bacpacman
 ```
 
-### Individual Commands
+**Import a local `.bacpac` file to your SQL Server:**
+
+```bash
+bacpacman import-bacpac
+```
+
+### Other Commands
 
 You can also use individual commands for more specific tasks.
 
@@ -100,7 +109,7 @@ bacpacman list-servers
 bacpacman list-databases --server-name your-server-name
 ```
 
-**Extract a `.bacpac` file directly:**
+**Extract a `.bacpac` file directly (non-interactive):**
 
 ```bash
 bacpacman extract-bacpac --server-name your-server --database-name your-db

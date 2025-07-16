@@ -25,8 +25,8 @@ def extract_bacpac(
     command: list[str] = [
         "sqlpackage",
         "/Action:Export",
-        f"/SourceServerName:'tcp:{server_name}.database.windows.net'",
-        f"/SourceDatabaseName:'{database_name}'",
+        f"/SourceServerName:tcp:{server_name}.database.windows.net",
+        f"/SourceDatabaseName:{database_name}",
         "/p:VerifyExtraction=False",
     ]
 
@@ -43,7 +43,7 @@ def extract_bacpac(
                     keyring.set_password(server_name, username, password)
             if password:
                 command.extend(
-                    [f"/SourceUser:'{username}'", f"/SourcePassword:'{password}'"]
+                    [f"/SourceUser:{username}", f"/SourcePassword:{password}"]
                 )
         except keyring.errors.NoKeyringError:
             questionary.print(
@@ -53,7 +53,7 @@ def extract_bacpac(
             )
             return
 
-    command.append(f"/TargetFile:'{output_file}'")
+    command.append(f"/TargetFile:{output_file}")
 
     try:
         questionary.print("Extracting bacpac...", style="bold fg:green")
@@ -81,7 +81,13 @@ def extract_bacpac(
         questionary.print("-------------------------------", style="bold fg:yellow")
 
 
-def import_bacpac(input_file: str, server_name: str, database_name: str) -> None:
+def import_bacpac(
+    input_file: str,
+    server_name: str,
+    database_name: str,
+    auth_method: str | None = None,
+    username: str | None = None,
+) -> None:
     """Imports a bacpac to a local SQL server."""
     click.echo(f"Importing {input_file} to {database_name} on {server_name}...")
     command: list[str] = [
@@ -90,13 +96,41 @@ def import_bacpac(input_file: str, server_name: str, database_name: str) -> None
         f"/SourceFile:{input_file}",
         f"/TargetServerName:{server_name}",
         f"/TargetDatabaseName:{database_name}",
+        "/TargetTrustServerCertificate:True",  # Trust self-signed certs on localhost
     ]
+
+    if auth_method == "sql" and username:
+        try:
+            password = keyring.get_password(server_name, username)
+            if not password:
+                password = questionary.password(
+                    f"Enter password for {username} on {server_name}:"
+                ).ask()
+                if password:
+                    keyring.set_password(server_name, username, password)
+            if password:
+                command.extend(
+                    [f"/TargetUser:{username}", f"/TargetPassword:{password}"]
+                )
+        except keyring.errors.NoKeyringError:
+            questionary.print(
+                "Error: No keyring backend found. Please install a backend for your OS "
+                "(e.g., 'secretstorage' on Linux).",
+                style="bold fg:red",
+            )
+            return
+
     try:
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True, capture_output=True, text=True)
         click.echo(f"Successfully imported {input_file} to {database_name}")
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         click.echo(f"Error importing bacpac: {e}")
-        click.echo("Please ensure 'sqlpackage' is installed and in your PATH.")
+        if isinstance(e, subprocess.CalledProcessError):
+            click.echo("\n--- sqlpackage error output ---", err=True)
+            click.echo(e.stderr, err=True)
+            click.echo("-------------------------------", err=True)
+        else:
+            click.echo("Please ensure 'sqlpackage' is installed and in your PATH.")
 
 
 def check_sqlpackage() -> None:

@@ -35,22 +35,14 @@ This document summarizes the work done, build processes, and other useful inform
 
 ## Implemented Features
 
-* **End-to-End Workflow:** The default behavior of the script is now a full, interactive workflow that guides the user through the entire process of selecting a subscription, server, and database, and then extracts the `.bacpac` file.
-* **Dual Authentication Methods:** The tool now supports both `Azure Active Directory` and `SQL Server Authentication`, prompting the user to choose their preferred method.
-* **Secure Credential Management:** For SQL Server Authentication, the script uses the `keyring` library to securely store and retrieve passwords from the operating system's native keychain.
-* **Azure Authentication:** `login` command that uses `DefaultAzureCredential` to authenticate. It requires the user to be logged in via the Azure CLI (`az login`). The tool now provides user-friendly error messages for common authentication failures.
-* **Subscription Management:**
-  * `login` automatically lists available subscriptions upon successful authentication.
-  * `select-subscription` command allows the user to choose a subscription either by providing the ID or selecting from an interactive list. The chosen ID is stored in a `.env` file.
-* **Database Discovery:**
-  * `list-servers` command to list all SQL servers within the selected subscription.
-  * `list-databases` command to list all databases on a specified server.
-* **Bacpac Operations:**
-  * `extract-bacpac` command that constructs and executes a `sqlpackage` command to export a database to a `.bacpac` file.
-  * `import-bacpac` command that uses `sqlpackage` to import a `.bacpac` file into a local SQL server.
-* **`sqlpackage` Prerequisite Check:** The script now checks for the presence of the `sqlpackage` utility on the system's PATH and provides OS-specific installation instructions if it's missing.
-* **Typing:** The entire codebase is fully type-hinted for improved clarity and robustness.
-* **Linting and Formatting:** The project is configured with `ruff` for linting and `black` for code formatting.
+* **End-to-End Export Workflow:** The default behavior of the `bacpacman` command is a full, interactive workflow that guides the user through selecting a subscription, server, and database, and then extracts the `.bacpac` file.
+* **Smart Import Workflow:** The `bacpacman import-bacpac` command provides a guided workflow that automatically detects `.bacpac` files, suggests database names, and handles local server authentication.
+* **Dual Authentication Methods:** The tool supports both Azure Active Directory and SQL Server Authentication for remote exports, and Windows Authentication and SQL Server Authentication for local imports.
+* **Secure Credential Management:** The script uses the `keyring` library to securely store and retrieve SQL Server passwords from the operating system's native keychain for both export and import operations.
+* **Azure Authentication:** The `login` command uses `DefaultAzureCredential` to authenticate. It requires the user to be logged in via the Azure CLI (`az login`).
+* **Prerequisite Checking:** The script checks for the presence of `sqlpackage` and the Azure CLI and provides OS-specific installation instructions if they are missing.
+* **Automatic Certificate Handling:** The import command automatically adds `/TargetTrustServerCertificate:True` to the `sqlpackage` command to resolve common connection errors with local SQL Server instances.
+* **Typing, Linting, and Formatting:** The entire codebase is fully type-hinted and checked with `mypy`, `pyright`, `ruff`, and `black`.
 
 ## Development Tasks
 
@@ -88,25 +80,23 @@ To run `pyright` for static type checking:
 pyright
 ```
 
-## Prerequisites for Use
-
-1. **Python 3** and the **`uv`** package manager must be installed.
-2. The **Azure CLI** must be installed, and the user must be authenticated using `az login`.
-3. The **`sqlpackage`** command-line utility must be installed and available in the system's PATH.
-
 ## How to Run
 
-The main script `bacpacman.py` is executable.
+The recommended way to run the tool is to install it in a virtual environment.
 
 ```bash
-# First, ensure you are in the virtual environment
+# Create and activate a virtual environment
+uv venv
 source .venv/bin/activate
 
-# Run the end-to-end workflow
-./bacpacman.py
+# Install the package in editable mode
+uv pip install -e .[dev]
 
-# Run a specific command
-./bacpacman.py <command> [options]
+# Run the interactive export workflow
+bacpacman
+
+# Run the interactive import workflow
+bacpacman import-bacpac
 ```
 
 ## Gemini Added Memories
@@ -119,3 +109,5 @@ source .venv/bin/activate
 * `pyright` is a stricter type-checker than `mypy`. When integrating it, a `pyrightconfig.json` file should be created to exclude directories like `.venv` and `build` to avoid analyzing third-party code.
 * I should not use the `rm` command to delete files. I will rely on the user to perform file deletions.
 * Avoid using `typing.Any` as an escape hatch for type checking. For complex or variable object structures from external libraries, prefer defining a `typing.Protocol` to enforce type safety on the attributes the application actually uses. Use `Any` only as a last resort when rigorous typing is prohibitively difficult.
+* When connecting to a local SQL Server instance with `sqlpackage`, the connection may fail due to an untrusted self-signed certificate. This can be resolved by adding the `/TargetTrustServerCertificate:True` flag to the command.
+* A good UX pattern for file-based tools is to automatically scan the current directory for relevant files (e.g., `.bacpac`) and, if found, present them as choices to the user to minimize manual input.
