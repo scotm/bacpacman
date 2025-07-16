@@ -3,7 +3,7 @@ import os
 import shutil
 import sys
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Protocol, cast
 
 import click
 from azure.core.exceptions import ClientAuthenticationError
@@ -11,6 +11,13 @@ from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
 from azure.mgmt.sql import SqlManagementClient
 from azure.mgmt.sql.models import Database, Server
+
+
+class Subscription(Protocol):
+    """A protocol for Subscription-like objects."""
+
+    display_name: str | None
+    subscription_id: str | None
 
 
 def get_credential() -> DefaultAzureCredential:
@@ -33,7 +40,7 @@ def get_sql_client(subscription_id: str) -> SqlManagementClient:
     return SqlManagementClient(get_credential(), subscription_id)
 
 
-def list_subscriptions() -> list[Any]:
+def list_subscriptions() -> list[Subscription]:
     """Lists all available Azure subscriptions."""
     subscription_client = get_subscription_client()
     with open(os.devnull, "w") as f, contextlib.redirect_stderr(f):
@@ -42,7 +49,7 @@ def list_subscriptions() -> list[Any]:
         raise ClientAuthenticationError(
             "No subscriptions found. Please ensure you have access to at least one."
         )
-    return subscriptions
+    return cast(list[Subscription], subscriptions)
 
 
 def list_servers(subscription_id: str) -> Iterable[Server]:

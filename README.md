@@ -22,9 +22,9 @@ This tool is designed to be a helpful replacement for the Azure Data Studio expo
 
 Before using `bacpacman`, you will need:
 
-1. **Python 3.10+** and a package manager like `pip` or `uv`.
-2. The **Azure CLI**. You must be logged in via `az login`.
-3. The **`sqlpackage` command-line utility**. The tool will guide you through the installation if it's missing.
+1.  **Python 3.10+** and a package manager like `pip` or `uv`.
+2.  The **Azure CLI**. You must be logged in via `az login`.
+3.  The **`sqlpackage` command-line utility**. The tool will guide you through the installation if it's missing.
 
 ## Installation
 
@@ -33,6 +33,34 @@ You can install `bacpacman` directly from PyPI:
 ```bash
 pip install bacpacman
 ```
+
+## Development
+
+To run the tool from the source code for development, follow these steps:
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/your-username/bacpacman.git
+    cd bacpacman
+    ```
+
+2.  **Create and activate a virtual environment:**
+
+    ```bash
+    # Create the virtual environment
+    uv venv
+
+    # Activate it (on macOS/Linux)
+    source .venv/bin/activate
+    ```
+
+3.  **Install the project in editable mode:**
+
+    ```bash
+    # Install the package and its development dependencies
+    uv pip install -e .[dev]
+    ```
 
 ## Usage
 

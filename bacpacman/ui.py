@@ -38,10 +38,11 @@ def run_interactive_workflow() -> None:
         # 3. Select Subscription
         subscription_choices = [
             Choice(
-                f"{s.display_name} ({s.subscription_id})",
-                s.subscription_id if s.subscription_id else "Unknown",
+                title=f"{s.display_name or 'Unnamed'} ({s.subscription_id or 'No ID'})",
+                value=s.subscription_id,
             )
             for s in subscriptions
+            if s.subscription_id
         ]
         subscription_id = questionary.select(
             "Select your Azure subscription:",
