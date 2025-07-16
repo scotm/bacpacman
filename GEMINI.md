@@ -115,3 +115,7 @@ source .venv/bin/activate
 * When committing source code, keep commit messages succinct, ideally around 70 characters, but no more than 120 characters.
 * When performing git commands, do them one at a time. Do not chain them with double-ampersands.
 * When preparing to commit, I will run the formatter, linter, and type-checker. If I make any fixes, I must repeat the entire sequence (format, lint, type-check) until all three tools report zero errors.
+* When refactoring a single-file script into a package, the `pyproject.toml` must be updated. The `[project.scripts]` entry point should be changed to `package_name.main:main`, and the `[tool.setuptools]` table should be changed from `py-modules` to `packages = ["package_name"]`.
+* `pyright` is a stricter type-checker than `mypy`. When integrating it, a `pyrightconfig.json` file should be created to exclude directories like `.venv` and `build` to avoid analyzing third-party code.
+* I should not use the `rm` command to delete files. I will rely on the user to perform file deletions.
+* Avoid using `typing.Any` as an escape hatch for type checking. For complex or variable object structures from external libraries, prefer defining a `typing.Protocol` to enforce type safety on the attributes the application actually uses. Use `Any` only as a last resort when rigorous typing is prohibitively difficult.
